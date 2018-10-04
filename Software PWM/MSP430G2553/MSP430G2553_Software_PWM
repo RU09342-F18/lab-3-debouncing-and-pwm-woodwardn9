@@ -1,50 +1,70 @@
-#include <msp430.h> 
+#include <msp430.h>
 
 
 /**
  * main.c
  */
-int main(void)
+void main(void)
 {
-    WDTCTL = WDTPW + WDTHOLD; //Watchdog
-    BCSCTL3 = LFXT1S_2; //Enables crystal
-    P1DIR |= 0X41; //PIN 1.6 (GREEN LED) and PIN 1.0 (RED LED) are set as outputs
-    P1SEL |= 0X40; //Pin 1.6 selected for PWM output
-    P1OUT |= BIT3; //Pull down resistor
-    P1REN |= BIT3; //Sets BIT3 to be enabled
-    P1IE |= BIT3; //Enables interrupt on Pin 1.3 (Button)
-    P1IES |= BIT3; //Enables high - to - low behavior on interrupt (Button press)
-
-    CCR0 = 1000; //PWM Maximum Period
-    CCTL1 = OUTMOD_7;
-    CCR1 = 500; //This code will initially start at ~50% Duty Cycle
-    TACTL = TASSEL_1 + MC_1; //ACLK in Up Mode
-    __enable_interrupt(); //Enables Interrupts
+    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
     
-while(1)
-{
-    //Hold loop
-}
+    P1IE |=  BIT3;                            // PIN 1.3 (BUTTON) interrupt enabled
+    P1IES |= BIT3;                            //Falling Edge is caught on PIN 1.3 (BUTTON)
+    P1REN |= BIT3;                            // Enable resistor on PIN 1.3 (BUTTON)
+    P1OUT |= BIT3;                             //Pull up resistor on PIN 1.3 (BUTTON)
+    P1IFG &= ~BIT3;                           // P1.3 Interrupt Flag cleared
+    P1DIR |= 0x41;       // PIN 1.0 (GREEN LED) and PIN 1.6 (RED LED) set as output
+    P1OUT |= 0x01;      //Turns on Green LED
+
+    TA0CCTL0 |= CCIE;              //enables CCR0 interrupt
+    TA0CCTL1 |= CCIE;              //enables CCR1 interrupt
+    TA0CTL = TASSEL_2 + MC_1 + TAIE;          // Selects SMCLK, Up Mode, Timer Interrupt Enabled
+    TA0CCR1 = 500;                               //~50% duty to start
+    TA0CCR0 = 1000;                             //Defines the period of the signal (1KHZ in this case)
+
+    __enable_interrupt();
+    while(1){
+    }
 }
 
+
+#pragma vector=TIMER0_A0_VECTOR //Interrupt when CCR0 value is reached
+__interrupt void Timer_A (void)
+{
+    P1OUT |= BIT0;      //This acts as a "SET" once the CCR0 value is reached
+}
+
+#pragma vector=TIMER0_A1_VECTOR
+__interrupt void Timer_A0 (void) //TA0IV is required when utilizing multiple timer interrupts
+{
+    switch(TA0IV){
+    case 2: //Case 2 defines interrupt on CCR1
+    {
+        P1OUT &= ~BIT0;     //This acts as a "RESET" once the CCR1 value is reached
+    }
+    }
+}
 #pragma vector = PORT1_VECTOR //Port 1 Interrupt that is triggered when Pin 1.3 is set from high to low (Pressing the button)
 __interrupt void Port_1(void)
 {
-    if((P1IN & BIT3) == 0) //checks to see if the button is pressed down
+    P1OUT ^= BIT6; //Toggles on PIN 1.6
+    TA0CCTL0 |= CCIE; //Enables interrupt on CCTL0
+    if((P1IN & BIT3) == 0) //Checks to see if button is still pressed
     {
-        P1OUT ^= 0X01; //Toggles PIN 1.0 (RED LED) to indicate a button press
 
-        if(CCR1 < CCR0) //Checks to see if the value of CCR1 is less than the value of CCR0
+        if(TA0CCR1 < 900) //If value is under 900, keep going
         {
-            CCR1 += 100; //increments duty cycle by 100 HZ
+
+            TA0CCR1 += 100; //increments duty cycle by 100 
         }
         else
         {
-            CCR1 = 0; //Resets CCR1 back to 0, causing a 0% duty cycle
+            TA0CCTL0 &= ~CCIE; //Disables interrupt on CCIE
+            TA0CCR1 = 0;
         }
     }
         else
         {
         }
-    P1IFG &= ~BIT3; //Resets interrupt flag initially triggered
+    P1IFG &= ~BIT3; //Resets interrupt flag initially triggered by PIN 1.3 (BUTTON)
 }
