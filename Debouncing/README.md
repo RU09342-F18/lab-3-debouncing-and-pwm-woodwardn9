@@ -1,18 +1,11 @@
-# Software Debouncing
-In previous labs, we talked about how objects such as switches can cause some nasty effects since they are actually a mechanical system at heart. We talked about the simple hardware method of debouncing, but due to the many different design constraints, you may not be able to add or adjust hardware. Debouncing is also only one of many applications which would require the use of built in Timers to allow for other processes to take place.
+# Debounce
+  The purpose of this code is to generate a remove the debounce effect that occurs when pressing a button in the microcontroller board. Various methods exist to reduce the debounce, such as delaying the clock, turning off the interrupt capabilities of a button, or using the watchdog timer to prevent unwanted effects. This task was performed on the MSP430G2553 and MSP432P401R boards.
 
-## Task
-You need to utilize the TIMER modules within the MSP430 processors to implement a debounced switch to control the state of an LED. You most likely will want to hook up your buttons on the development boards to an oscilloscope to see how much time it takes for the buttons to settle. The idea here is that your processor should be able to run other code, while relying on timers and interrupts to manage the debouncing in the background. *You should not be using polling techniques for this assignment.*
-
-## Deliverables
-You will need to have two folders in this repository, one for each of the processors that you used for this part of the lab. Remember to replace this README with your own.
-
-### Hints
-You need to take a look at how the P1IE and P1IES registers work and how to control them within an interrupt routine. Remember that the debouncing is not going to be the main process you are going to run by the end of the lab.
-
-## Extra Work
-### Low Power Modes
-Go into the datasheets or look online for information about the low power modes of your processors and using Energy Trace, see what the lowest power consumption you can achieve while still running your debouncing code. Take a note when your processor is not driving the LED (or unplug the header connecting the LED and check) but running the interrupt routine for your debouncing.
-
-### Double the fun
-Can you expand your code to debounce two switches? Do you have to use two Timer peripherals to do this?
+# Functionality
+Two different approches were used in the creation of the debounce code. For the case of the MSP430G2553, two interrupts were utilized; a Port 1 interrupt and a watch dog timer interrupt. The purpose of the Port 1 interrupt was recongize the button press, and would lead to the watchdog interrupt. During the watchdog interrupt, the watchdog timer was turned on, essentially reseting the board and preventing any inputs (in this case, unwanted debounces). Finally, after 32 milleseconds, the timer would be disabled and normal function would resume. In the case of the MSP432P401R, the NVIC function must be used to call a particular interrupt on Port 1. Similar to the G2553, this interrupt was recongize and be called once the correct button was pressed. Once the button was pressed, the program would "pause" using a for loop, essentially nullyfying the effect of any unwanted inputs by forcing the program to run through a for loop for an amounted time (similar to a _delay_cycles). Once the for loop was cleared, the interrupt would then be cleared and resume back to normal operations.
+    
+ # Differences between MSP430G2553 and MSP432P401R
+Due to the boards being almost entirely different in terms of using interrupts, the primary difference seen between both boards was the method of debounce. In the case of the MSP430G2553, this board utilized the watchdog timer to hard reset the board and force the LED to remain off after a button press, removing any unwanted debounce. In the case of the MSP432P401R, a interrupt was generated using PORT1_IRQHandler and would utilize a for loop to essentially "pause" the program, ignoring any input besides the initial button press until the for loop was finished and the interrupt was cleared.
+    
+ # Results
+It can be observed on both boards that pressing the button down will cause an LED to turn on and remain on without any unwanted flickering.
