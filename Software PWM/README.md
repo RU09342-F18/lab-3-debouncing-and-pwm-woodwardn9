@@ -1,4 +1,4 @@
-# software PWM
+# Software PWM
   The purpose of this code is to generate a PWM signal that can be incremented using a button by a factor of 10% per press. For this task, software PWM requires no instance of OUTMOD to be used, so the use of timer interrupts and setting LED's manually according to the values in the CCR0 and CCR1 registers was done instead. This code can be utilized with the MSP430G2553 and the MSP430FR2311.
 
 # Functionality
