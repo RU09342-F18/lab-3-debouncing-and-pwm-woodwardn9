@@ -1,0 +1,72 @@
+#include <msp430.h>
+
+
+/**
+ * main.c
+ */
+int main(void) {
+    WDTCTL = WDTPW | WDTHOLD;   // Stop watchdog timer
+    PM5CTL0 &= ~LOCKLPM5;           //Unlock
+
+    TB0CTL |= TBIE;                           //Enable interrupt for Timer B0
+    TB0CCTL0 |= CCIE;                         //Enables CCR0 interrupt
+    TB0CCTL1 |= CCIE;                         //Enables CCR1 interrupt
+    TB0CCTL0 &= ~TBIFG;                       //Clears any flags on CCTL0;
+    TB0CCTL1 &= ~TBIFG;                       //Clears any flags on CCTL1;
+    TB0CTL = TBSSEL_2;                        // SMCLK, Up Mode enabled
+    TB0CCR1 = 500;                            //~50% duty to start
+    TB0CCR0 = 1000;                           //1 kHz signal is the period
+
+    P1IE |=  BIT1;                            // P1.1 interrupt enabled
+    P1IES |= BIT1;                            //Enables interrupt on falling edge
+    P1REN |= BIT1;                            // Enable resistor on PIN 1.1 (BUTTON)
+    P1OUT |= BIT1;                            //Pull up resistor on PIN 1.1
+    P1IFG &= ~BIT1;                           // P1.1 Interrupt Flag cleared before program runs
+    P1DIR |= BIT0;                            // P1.0 set as an output
+    P1OUT |= BIT0;                            //Starts with PIN 1.0 initially on
+    P2DIR |= BIT0;                            //PIN 2.0 set as an output
+    P2OUT |= BIT0;                            //Starts with PIN 2.0 initially on
+
+    __bis_SR_register(GIE); 
+    __enable_interrupt();
+    while(1){
+    }
+}
+//Interrupt for Timer B0
+#pragma vector = TIMER0_B0_VECTOR
+__interrupt void Timer0_B0_ISR(void) {  
+    P1OUT |= BIT0; //"SETS" Pin 1.0 (LED)
+}
+//Interrupt for Timer B1
+#pragma vector = TIMER0_B1_VECTOR
+__interrupt void Timer0_B1(void) {  
+    switch(TB0IV){
+    case 2://CCR1 is selected during Case 2
+    P1OUT &= ~BIT0; //"RESETS" Pin 1.0 (LED)
+    break;
+    }
+}
+#pragma vector = PORT1_VECTOR //Port 1 Interrupt that is triggered when Pin 1.3 is set from high to low (Pressing the button)
+__interrupt void Port_1(void)
+{
+    P2OUT ^= BIT0; //Toggles LED on PIN 2.0
+    TB0CCTL0 |= CCIE; //Enables interrupts on CCTL0
+    if((P1IN & BIT1) == 0) //Checks if button was pressed
+    {
+
+        if(TB0CCR1 < 900)
+        {
+
+            TB0CCR1 += 100; //increments duty cycle by 100Hz
+        }
+        else
+        {
+            TB0CCTL0 &= ~CCIE; //Disables interrupts on CCIE
+            TB0CCR1 = 0;
+        }
+    }
+        else
+        {
+        }
+    P1IFG &= ~BIT1; //Resets interrupt flag initially triggered
+}
